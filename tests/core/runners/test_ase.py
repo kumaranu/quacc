@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def set_seed():
     np.random.seed(42)  # noqa: NPY002
 
@@ -25,7 +25,6 @@ from ase.mep.neb import NEBOptimizer
 from ase.optimize import BFGS, BFGSLineSearch
 from ase.optimize.sciopt import SciPyFminBFGS
 
-# from sella import Sella
 from quacc import change_settings, get_settings, strip_decorator
 from quacc.recipes.emt.core import relax_job
 from quacc.runners._base import BaseRunner
@@ -141,7 +140,7 @@ def test_geodesic_interpolate_wrapper_large_system(setup_test_environment):
 def test_run_neb(setup_test_environment, tmp_path):
     optimizer_class = NEBOptimizer
     n_intermediate = 10
-    r_positions = -0.849607247104427
+    r_positions = -0.8496072471044277
     p_energy = 1.0824716056541726
     first_image_forces = -0.0052292931195385695
 
@@ -169,10 +168,13 @@ def test_run_neb(setup_test_environment, tmp_path):
 
     neb_kwargs = {"method": "aseneb", "precon": None}
     dyn = run_neb(images, optimizer=optimizer_class, neb_kwargs=neb_kwargs)
-    neb_summary = summarize_neb_run(dyn)
+    neb_summary = summarize_neb_run(
+        dyn,
+        additional_fields={"geodesic_interpolate_flags": {"n_images": n_intermediate}},
+    )
 
     assert neb_summary["trajectory_results"][1]["energy"] == pytest.approx(
-        1.09895294161361, abs=1e-6
+        1.0817616505689465, abs=1e-6
     )
 
 

@@ -31,19 +31,13 @@ if TYPE_CHECKING:
     from ase.atoms import Atoms
     from numpy.typing import NDArray
 
-    from quacc.recipes.newtonnet.core import FreqSchema
-    from quacc.runners.ase import OptParams
-    from quacc.schemas._aliases.ase import OptSchema
-
-    class TSSchema(OptSchema):
-        freq_job: FreqSchema | None
-
-    class IRCSchema(OptSchema):
-        freq_job: FreqSchema | None
-
-    class QuasiIRCSchema(OptSchema):
-        irc_job: IRCSchema
-        freq_job: FreqSchema | None
+    from quacc.types import (
+        NewtonNetIRCSchema,
+        NewtonNetQuasiIRCSchema,
+        NewtonNetTSSchema,
+        OptParams,
+        OptSchema,
+    )
 
     class NebSchema(TypedDict):
         relax_reactant: OptSchema
@@ -56,7 +50,7 @@ if TYPE_CHECKING:
         relax_product: OptSchema
         geodesic_results: list[Atoms]
         neb_results: dict
-        ts_results: TSSchema
+        ts_results: OptSchema
 
 
 @job
@@ -71,7 +65,7 @@ def ts_job(
     freq_job_kwargs: dict[str, Any] | None = None,
     opt_params: OptParams | None = None,
     **calc_kwargs,
-) -> TSSchema:
+) -> NewtonNetTSSchema:
     """
     Perform a transition state (TS) job using the given atoms object.
 
@@ -104,7 +98,6 @@ def ts_job(
     calc_defaults = {
         "model_path": settings.NEWTONNET_MODEL_PATH,
         "settings_path": settings.NEWTONNET_CONFIG_PATH,
-        "hess_method": "autograd",
     }
     opt_defaults = {
         "optimizer": Sella,
@@ -124,7 +117,7 @@ def ts_job(
     # Run the TS optimization
     dyn = Runner(atoms, calc).run_opt(**opt_flags)
     opt_ts_summary = _add_stdev_and_hess(
-        summarize_opt_run(dyn, additional_fields={"name": "NewtonNet TS"})
+        summarize_opt_run(dyn, additional_fields={"name": "NewtonNet TS"}), **calc_flags
     )
 
     # Run a frequency calculation
@@ -150,7 +143,7 @@ def irc_job(
     freq_job_kwargs: dict[str, Any] | None = None,
     opt_params: OptParams | None = None,
     **calc_kwargs,
-) -> IRCSchema:
+) -> NewtonNetIRCSchema:
     """
     Perform an intrinsic reaction coordinate (IRC) job using the given atoms object.
 
@@ -229,7 +222,7 @@ def quasi_irc_job(
     irc_job_kwargs: dict[str, Any] | None = None,
     relax_job_kwargs: dict[str, Any] | None = None,
     freq_job_kwargs: dict[str, Any] | None = None,
-) -> QuasiIRCSchema:
+) -> NewtonNetQuasiIRCSchema:
     """
     Perform a quasi-IRC job using the given atoms object. The initial IRC job by default
     is run with `max_steps: 5`.
@@ -333,6 +326,7 @@ def neb_job(
     calc_defaults = {
         "model_path": settings.NEWTONNET_MODEL_PATH,
         "settings_path": settings.NEWTONNET_CONFIG_PATH,
+        "hess_method": None,
     }
 
     geodesic_defaults = {"n_images": 20}
@@ -367,7 +361,14 @@ def neb_job(
         "relax_reactant": relax_summary_r,
         "relax_product": relax_summary_p,
         "geodesic_results": images,
-        "neb_results": summarize_neb_run(dyn),
+        "neb_results": summarize_neb_run(
+            dyn,
+            additional_fields={
+                "neb_flags": neb_flags,
+                "calc_flags": calc_flags,
+                "geodesic_interpolate_flags": geodesic_interpolate_flags,
+            },
+        ),
     }
 
 
@@ -386,6 +387,7 @@ def neb_ts_job(
     calc_kwargs: dict[str, Any] | None = None,
     geodesic_interpolate_kwargs: dict[str, Any] | None = None,
     neb_kwargs: dict[str, Any] | None = None,
+    ts_job_kwargs: dict[str, Any] | None = None,
 ) -> NebTsSchema:
     """
     Perform a quasi-IRC job using the given reactant and product atoms objects.
@@ -404,6 +406,8 @@ def neb_ts_job(
         Keyword arguments for the geodesic_interpolate function, by default None.
     neb_kwargs
         Keyword arguments for the NEB calculation, by default None.
+    ts_job_kwargs
+        Keyword arguments for the TS optimizer, by default None.
 
     Returns
     -------
@@ -419,17 +423,20 @@ def neb_ts_job(
     neb_kwargs = neb_kwargs or {}
     geodesic_interpolate_kwargs = geodesic_interpolate_kwargs or {}
     calc_kwargs = calc_kwargs or {}
+    ts_job_kwargs = ts_job_kwargs or {}
     settings = get_settings()
 
     calc_defaults = {
         "model_path": settings.NEWTONNET_MODEL_PATH,
         "settings_path": settings.NEWTONNET_CONFIG_PATH,
+        "hess_method": None,
     }
 
     geodesic_defaults = {"n_images": 20}
 
     neb_defaults = {"method": "aseneb", "precon": None}
     calc_flags = recursive_dict_merge(calc_defaults, calc_kwargs)
+    calc_flags["hess_method"] = None
     geodesic_interpolate_flags = recursive_dict_merge(
         geodesic_defaults, geodesic_interpolate_kwargs
     )
@@ -451,7 +458,9 @@ def neb_ts_job(
     ts_index = np.argmax([i["energy"] for i in traj_results[-(n_images - 1) : -1]]) + 1
     ts_atoms = traj[-(n_images) + ts_index]
 
-    output = ts_job(ts_atoms)
+    calc_flags = recursive_dict_merge(calc_defaults, calc_kwargs)
+
+    output = strip_decorator(ts_job)(ts_atoms, **ts_job_kwargs, **calc_flags)
     neb_results["ts_results"] = output
 
     return neb_results
@@ -465,13 +474,13 @@ def neb_ts_job(
     has_geodesic_interpolate,
     "geodesic-interpolate must be installed. Refer to the quacc documentation.",
 )
-def geodesic_ts_job(
+def geodesic_job(
     reactant_atoms: Atoms,
     product_atoms: Atoms,
     relax_job_kwargs: dict[str, Any] | None = None,
     calc_kwargs: dict[str, Any] | None = None,
     geodesic_interpolate_kwargs: dict[str, Any] | None = None,
-) -> NebTsSchema:
+) -> dict:
     """
     Perform a quasi-IRC job using the given reactant and product atoms objects.
 
@@ -490,6 +499,97 @@ def geodesic_ts_job(
 
     Returns
     -------
+    dict
+        A dictionary containing the following keys:
+            - 'relax_reactant': Summary of the relaxed reactant structure.
+            - 'relax_product': Summary of the relaxed product structure.
+            - 'geodesic_results': The interpolated images between reactant and product.
+            - 'highest_e_atoms': ASE atoms object for the highest energy structure for the geodesic path
+    """
+    relax_job_kwargs = relax_job_kwargs or {}
+    geodesic_interpolate_kwargs = geodesic_interpolate_kwargs or {}
+    settings = get_settings()
+
+    calc_defaults = {
+        "model_path": settings.NEWTONNET_MODEL_PATH,
+        "settings_path": settings.NEWTONNET_CONFIG_PATH,
+        "hess_method": None,
+    }
+
+    geodesic_defaults = {"n_images": 20}
+
+    calc_flags = recursive_dict_merge(calc_defaults, calc_kwargs)
+    calc_flags["hess_method"] = None
+    geodesic_interpolate_flags = recursive_dict_merge(
+        geodesic_defaults, geodesic_interpolate_kwargs
+    )
+
+    # Define calculator
+    reactant_atoms.calc = NewtonNet(**calc_flags)
+    product_atoms.calc = NewtonNet(**calc_flags)
+
+    # Run IRC
+    relax_summary_r = strip_decorator(relax_job)(reactant_atoms, **relax_job_kwargs)
+    relax_summary_p = strip_decorator(relax_job)(product_atoms, **relax_job_kwargs)
+
+    images = _geodesic_interpolate_wrapper(
+        relax_summary_r["atoms"].copy(),
+        relax_summary_p["atoms"].copy(),
+        **geodesic_interpolate_flags,
+    )
+
+    potential_energies = []
+    for image in images:
+        image.calc = NewtonNet(**calc_flags)
+        potential_energies.append(image.get_potential_energy())
+
+    ts_index = np.argmax(potential_energies)
+    highest_e_atoms = images[ts_index]
+
+    return {
+        "relax_reactant": relax_summary_r,
+        "relax_product": relax_summary_p,
+        "geodesic_results": images,
+        "highest_e_atoms": highest_e_atoms,
+    }
+
+
+@job
+@requires(
+    has_newtonnet, "NewtonNet must be installed. Refer to the quacc documentation."
+)
+@requires(
+    has_geodesic_interpolate,
+    "geodesic-interpolate must be installed. Refer to the quacc documentation.",
+)
+def geodesic_ts_job(
+    reactant_atoms: Atoms,
+    product_atoms: Atoms,
+    relax_job_kwargs: dict[str, Any] | None = None,
+    calc_kwargs: dict[str, Any] | None = None,
+    geodesic_interpolate_kwargs: dict[str, Any] | None = None,
+    ts_job_kwargs: dict[str, Any] | None = None,
+) -> NebTsSchema:
+    """
+    Perform a quasi-IRC job using the given reactant and product atoms objects.
+
+    Parameters
+    ----------
+    reactant_atoms
+        The Atoms object representing the reactant structure.
+    product_atoms
+        The Atoms object representing the product structure.
+    relax_job_kwargs
+        Keyword arguments to use for the relax_job function, by default None.
+    calc_kwargs
+        Keyword arguments for the NewtonNet calculator, by default None.
+    geodesic_interpolate_kwargs
+        Keyword arguments for the geodesic_interpolate function, by default None.
+    ts_job_kwargs
+        Keyword arguments for ts optimizer, by default None.
+
+    Returns
+    -------
     NebTsSchema
         A dictionary containing the following keys:
             - 'relax_reactant': Summary of the relaxed reactant structure.
@@ -499,17 +599,20 @@ def geodesic_ts_job(
             - 'ts_results': Summary of the transition state optimization.
     """
     relax_job_kwargs = relax_job_kwargs or {}
+    ts_job_kwargs = ts_job_kwargs or {}
     geodesic_interpolate_kwargs = geodesic_interpolate_kwargs or {}
     settings = get_settings()
 
     calc_defaults = {
         "model_path": settings.NEWTONNET_MODEL_PATH,
         "settings_path": settings.NEWTONNET_CONFIG_PATH,
+        "hess_method": None,
     }
 
     geodesic_defaults = {"n_images": 20}
 
     calc_flags = recursive_dict_merge(calc_defaults, calc_kwargs)
+    calc_flags["hess_method"] = None
     geodesic_interpolate_flags = recursive_dict_merge(
         geodesic_defaults, geodesic_interpolate_kwargs
     )
@@ -536,7 +639,8 @@ def geodesic_ts_job(
     ts_index = np.argmax(potential_energies)
     ts_atoms = images[ts_index]
 
-    output = ts_job(ts_atoms)
+    calc_flags = recursive_dict_merge(calc_defaults, calc_kwargs)
+    output = strip_decorator(ts_job)(ts_atoms, **ts_job_kwargs, **calc_flags)
     return {
         "relax_reactant": relax_summary_r,
         "relax_product": relax_summary_p,
@@ -568,6 +672,7 @@ def _get_hessian(atoms: Atoms) -> NDArray:
     ml_calculator = NewtonNet(
         model_path=settings.NEWTONNET_MODEL_PATH,
         settings_path=settings.NEWTONNET_CONFIG_PATH,
+        hess_method="autograd",
     )
     ml_calculator.calculate(atoms)
 

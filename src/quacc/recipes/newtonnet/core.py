@@ -27,9 +27,14 @@ if TYPE_CHECKING:
 
     from ase.atoms import Atoms
 
-    from quacc.runners.ase import OptParams
-    from quacc.schemas._aliases.ase import OptSchema, RunSchema, VibThermoSchema
-    from quacc.utils.files import Filenames, SourceDirectory
+    from quacc.types import (
+        Filenames,
+        OptParams,
+        OptSchema,
+        RunSchema,
+        SourceDirectory,
+        VibThermoSchema,
+    )
 
 
 @job
@@ -190,7 +195,7 @@ def freq_job(
     )
 
 
-def _add_stdev_and_hess(summary: dict[str, Any]) -> dict[str, Any]:
+def _add_stdev_and_hess(summary: dict[str, Any], **calc_kwargs) -> dict[str, Any]:
     """
     Calculate and add standard deviation values and Hessians to the summary.
 
@@ -204,6 +209,10 @@ def _add_stdev_and_hess(summary: dict[str, Any]) -> dict[str, Any]:
     ----------
     summary
         A dictionary containing information about the molecular trajectory.
+    **calc_kwargs
+        Custom kwargs for the NewtonNet calculator. Set a value to
+        `quacc.Remove` to remove a pre-existing key entirely. For a list of available
+        keys, refer to the `newtonnet.utils.ase_interface.MLAseCalculator` calculator.
 
     Returns
     -------
@@ -212,11 +221,13 @@ def _add_stdev_and_hess(summary: dict[str, Any]) -> dict[str, Any]:
         Hessian values.
     """
     settings = get_settings()
+    calc_defaults = {
+        "model_path": settings.NEWTONNET_MODEL_PATH,
+        "settings_path": settings.NEWTONNET_CONFIG_PATH,
+    }
+    calc_flags = recursive_dict_merge(calc_defaults, calc_kwargs)
     for i, atoms in enumerate(summary["trajectory"]):
-        calc = NewtonNet(
-            model_path=settings.NEWTONNET_MODEL_PATH,
-            settings_path=settings.NEWTONNET_CONFIG_PATH,
-        )
+        calc = NewtonNet(**calc_flags)
         results = Runner(atoms, calc).run_calc().calc.results
         summary["trajectory_results"][i]["hessian"] = results["hessian"]
         summary["trajectory_results"][i]["energy_std"] = results["energy_disagreement"]
