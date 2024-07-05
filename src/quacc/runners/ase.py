@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os.path
 import sys
 from importlib.util import find_spec
 from shutil import copy, copytree
@@ -21,7 +22,7 @@ from ase.md.velocitydistribution import (
 )
 from ase.mep import NEB
 from ase.mep.neb import NEBOptimizer
-from ase.optimize import BFGS
+from ase.optimize import BFGS, MDMin
 from ase.optimize.sciopt import SciPyOptimizer
 from ase.vibrations import Vibrations
 from monty.dev import requires
@@ -426,7 +427,7 @@ def run_neb(
     relax_cell: bool = False,
     fmax: float = 0.01,
     max_steps: int | None = 1000,
-    optimizer: NEBOptimizer | Optimizer = NEBOptimizer,
+    optimizer: NEBOptimizer | Optimizer = MDMin,
     optimizer_kwargs: dict[str, Any] | None = None,
     run_kwargs: dict[str, Any] | None = None,
     neb_kwargs: dict[str, Any] | None = None,
@@ -463,10 +464,9 @@ def run_neb(
     """
     if optimizer.__name__ == "BFGSLineSearch":
         raise ValueError("BFGSLineSearch is not allowed as optimizer with NEB.")
-
     # Copy atoms so we don't modify it in-place
     images = copy_atoms(images)
-    settings = get_settings()
+    # settings = get_settings()
 
     neb = NEB(images, **neb_kwargs)
 
@@ -480,7 +480,7 @@ def run_neb(
     # Set defaults
     optimizer_kwargs = recursive_dict_merge(
         {
-            "logfile": "-" if settings.DEBUG else dir_lists[0][0] / "opt.log",
+            "logfile": dir_lists[0][0] / "opt.log",
             "restart": dir_lists[0][0] / "opt.json",
         },
         optimizer_kwargs,
@@ -504,6 +504,7 @@ def run_neb(
     # Run optimization
     dyn = optimizer(neb, **optimizer_kwargs)
     dyn.attach(traj.write)
+
     dyn.run(fmax, max_steps)
     traj.close()
 
