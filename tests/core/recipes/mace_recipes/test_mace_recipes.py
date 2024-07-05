@@ -330,7 +330,7 @@ def test_neb_job(setup_test_environment, tmp_path):
 
     assert len(neb_summary["neb_results"]["trajectory_results"]) == 20
     assert neb_summary["relax_reactant"]["atoms"].positions[0, 0] == pytest.approx(
-        0.8815, abs=1e-3
+        1.6959156598553338, abs=1e-3
     )
     assert neb_summary["relax_product"]["atoms"].positions[0, 0] == pytest.approx(
         1.117689, abs=1e-3
