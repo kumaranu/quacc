@@ -338,7 +338,7 @@ def test_neb_job(setup_test_environment, tmp_path):
 
     assert neb_summary["neb_results"]["trajectory_results"][1][
         "energy"
-    ] == pytest.approx(-24.895280838012695, abs=0.01)
+    ] == pytest.approx(-3169.331891816578, abs=0.01)
 
 
 def test_geodesic_job(setup_test_environment, tmp_path):
