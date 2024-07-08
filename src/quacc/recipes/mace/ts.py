@@ -429,7 +429,7 @@ def neb_ts_job(
 
     geodesic_defaults = {"n_images": 20}
 
-    neb_defaults = {"method": "aseneb", "precon": None}
+    neb_defaults = {"method": "aseneb", "precon": None, "parallel": True}
     calc_flags = recursive_dict_merge(calc_defaults, calc_kwargs)
     calc_flags["hess_method"] = None
     geodesic_interpolate_flags = recursive_dict_merge(
