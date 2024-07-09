@@ -112,7 +112,7 @@ def ts_job(
     if use_custom_hessian:
         opt_flags["optimizer_kwargs"]["hessian_function"] = _get_hessian
 
-    calc = mace_off(default_dtypes='float64', **calc_flags)
+    calc = mace_off(default_dtypes='float32', **calc_flags)
 
     # Run the TS optimization
     dyn = Runner(atoms, calc).run_opt(**opt_flags)
@@ -185,7 +185,7 @@ def irc_job(
     opt_flags = recursive_dict_merge(opt_defaults, opt_params)
 
     # Define calculator
-    calc = mace_off(default_dtypes='float64', **calc_flags)
+    calc = mace_off(default_dtypes='float32', **calc_flags)
 
     # Run IRC
     with change_settings({"CHECK_CONVERGENCE": False}):
@@ -336,8 +336,8 @@ def neb_job(
     # Debug prints to trace the values
 
     # Define calculator
-    reactant_atoms.calc = mace_off(default_dtypes='float64', **calc_flags)
-    product_atoms.calc = mace_off(default_dtypes='float64', **calc_flags)
+    reactant_atoms.calc = mace_off(default_dtypes='float32', **calc_flags)
+    product_atoms.calc = mace_off(default_dtypes='float32', **calc_flags)
 
     # Run relax job
     relax_summary_r = strip_decorator(relax_job)(reactant_atoms, **relax_job_kwargs)
@@ -348,7 +348,7 @@ def neb_job(
     )
 
     for image in images:
-        image.calc = mace_off(default_dtypes='float64', **calc_flags)
+        image.calc = mace_off(default_dtypes='float32', **calc_flags)
 
     dyn = run_neb(images, neb_kwargs=neb_flags)
 
@@ -520,8 +520,8 @@ def geodesic_job(
     )
 
     # Define calculator
-    reactant_atoms.calc = mace_off(default_dtypes='float64', **calc_flags)
-    product_atoms.calc = mace_off(default_dtypes='float64', **calc_flags)
+    reactant_atoms.calc = mace_off(default_dtypes='float32', **calc_flags)
+    product_atoms.calc = mace_off(default_dtypes='float32', **calc_flags)
 
     # Run IRC
     relax_summary_r = strip_decorator(relax_job)(reactant_atoms, **relax_job_kwargs)
@@ -535,7 +535,7 @@ def geodesic_job(
 
     potential_energies = []
     for image in images:
-        image.calc = mace_off(default_dtypes='float64', **calc_flags)
+        image.calc = mace_off(default_dtypes='float32', **calc_flags)
         potential_energies.append(image.get_potential_energy())
 
     ts_index = np.argmax(potential_energies)
@@ -613,8 +613,8 @@ def geodesic_ts_job(
     )
 
     # Define calculator
-    reactant_atoms.calc = mace_off(default_dtypes='float64', **calc_flags)
-    product_atoms.calc = mace_off(default_dtypes='float64', **calc_flags)
+    reactant_atoms.calc = mace_off(default_dtypes='float32', **calc_flags)
+    product_atoms.calc = mace_off(default_dtypes='float32', **calc_flags)
 
     # Run IRC
     relax_summary_r = strip_decorator(relax_job)(reactant_atoms, **relax_job_kwargs)
@@ -628,7 +628,7 @@ def geodesic_ts_job(
 
     potential_energies = []
     for image in images:
-        image.calc = mace_off(default_dtypes='float64', **calc_flags)
+        image.calc = mace_off(default_dtypes='float32', **calc_flags)
         potential_energies.append(image.get_potential_energy())
 
     ts_index = np.argmax(potential_energies)
@@ -663,7 +663,7 @@ def _get_hessian(atoms: Atoms) -> NDArray:
     NDArray
         The calculated Hessian matrix, reshaped into a 2D array.
     """
-    ml_calculator = mace_off(default_dtypes='float64')
+    ml_calculator = mace_off(default_dtypes='float32')
     hessian = ml_calculator.get_hessian(atoms)
     n_atoms = np.shape(hessian)[1]
     return np.reshape(hessian, (3 * n_atoms, 3 * n_atoms))

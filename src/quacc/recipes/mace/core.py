@@ -73,7 +73,7 @@ def static_job(
     }
     calc_flags = recursive_dict_merge(calc_defaults, calc_kwargs)
 
-    calc = mace_off(default_dtype="float64", **calc_flags)
+    calc = mace_off(default_dtype="float32", **calc_flags)
     final_atoms = Runner(atoms, calc, copy_files=copy_files).run_calc()
 
     return summarize_run(
@@ -123,7 +123,7 @@ def relax_job(
     calc_flags = recursive_dict_merge(calc_defaults, calc_kwargs)
     opt_flags = recursive_dict_merge(opt_defaults, opt_params)
 
-    calc = mace_off(default_dtype="float64", **calc_flags)
+    calc = mace_off(default_dtype="float32", **calc_flags)
     dyn = Runner(atoms, calc, copy_files=copy_files).run_opt(**opt_flags)
     return summarize_opt_run(dyn, additional_fields={"name": "mace_off Relax"})
 
@@ -169,7 +169,7 @@ def freq_job(
     }
     calc_flags = recursive_dict_merge(calc_defaults, calc_kwargs)
 
-    calc = mace_off(default_dtypes='float64', **calc_flags)
+    calc = mace_off(default_dtypes='float32', **calc_flags)
     final_atoms = Runner(atoms, calc, copy_files=copy_files).run_calc()
 
     summary = summarize_run(
@@ -223,7 +223,7 @@ def _add_stdev_and_hess(summary: dict[str, Any], **calc_kwargs) -> dict[str, Any
     }
     calc_flags = recursive_dict_merge(calc_defaults, calc_kwargs)
     for i, atoms in enumerate(summary["trajectory"]):
-        calc = mace_off(default_dtype='float64', **calc_flags)
+        calc = mace_off(default_dtype='float32', **calc_flags)
         summary["trajectory_results"][i]["hessian"] = calc.get_hessian(atoms)
 
     return summary
