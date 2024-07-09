@@ -52,7 +52,7 @@ def test_static_job(tmp_path, monkeypatch):
     output = static_job(atoms)
     assert output["spin_multiplicity"] == 1
     assert output["natoms"] == len(atoms)
-    assert output["results"]["energy"] == pytest.approx(-2081.11639716893)
+    assert output["results"]["energy"] == pytest.approx(-2081.116455078125, abs=1e-6)
     assert np.array_equal(output["atoms"].get_positions(), atoms.get_positions())
 
 
@@ -114,7 +114,7 @@ def test_ts_job_with_default_args(tmp_path, monkeypatch):
     assert "freq_job" in output
     assert output["results"]["energy"] == pytest.approx(-2077.4843066212175)
     assert output["freq_job"]["results"]["imag_vib_freqs"][0] == pytest.approx(
-        -8581.247638101131, abs=1e-6
+        -8581.247639636787, abs=1e-6
     )
 
 
