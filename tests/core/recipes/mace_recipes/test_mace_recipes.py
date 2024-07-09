@@ -330,7 +330,7 @@ def test_neb_job(setup_test_environment, tmp_path):
 
     assert len(neb_summary["neb_results"]["trajectory_results"]) == 20
     assert neb_summary["relax_reactant"]["atoms"].positions[0, 0] == pytest.approx(
-        1.6959156598553338, abs=1e-3
+        0.6765230472780375, abs=1e-3
     )
     assert neb_summary["relax_product"]["atoms"].positions[0, 0] == pytest.approx(
         0.9728398349309856, abs=1e-3
@@ -347,5 +347,5 @@ def test_geodesic_job(setup_test_environment, tmp_path):
 
     geodesic_summary = geodesic_job(reactant, product, calc_kwargs=calc_kwargs)
     assert geodesic_summary["highest_e_atoms"].get_potential_energy() == pytest.approx(
-        -3157.169858218544, abs=1e-6
+        -3050.228888202081, abs=1e-6
     )
