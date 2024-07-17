@@ -285,7 +285,7 @@ def neb_job(
     relax_job_kwargs: dict[str, Any] | None = None,
     calc_kwargs: dict[str, Any] | None = None,
     geodesic_interpolate_kwargs: dict[str, Any] | None = None,
-    neb_kwargs: dict[str, Any] | None = None,
+    run_neb_kwargs: dict[str, Any] | None = None,
 ) -> NebSchema:
     """
     Perform a nudged elastic band (NEB) calculation to find the minimum energy path (MEP) between the given reactant and product structures.
@@ -302,8 +302,8 @@ def neb_job(
         Custom kwargs for the NewtonNet calculator.
     geodesic_interpolate_kwargs
         Keyword arguments for the geodesic function.
-    neb_kwargs
-        Keyword arguments for the NEB calculation.
+    run_neb_kwargs
+        Keyword arguments for quacc.runners.ase.run_neb function.
 
     Returns
     -------
@@ -315,7 +315,7 @@ def neb_job(
             - 'neb_results': Summary of the NEB optimization.
     """
     relax_job_kwargs = relax_job_kwargs or {}
-    neb_kwargs = neb_kwargs or {}
+    run_neb_kwargs = run_neb_kwargs or {}
     geodesic_interpolate_kwargs = geodesic_interpolate_kwargs or {}
     settings = get_settings()
 
@@ -327,14 +327,12 @@ def neb_job(
 
     geodesic_defaults = {"n_images": 20}
 
-    neb_defaults = {"method": "aseneb", "precon": None}
+    run_neb_defaults = {'neb_kwargs': {"method": "aseneb", "precon": None}}
     calc_flags = recursive_dict_merge(calc_defaults, calc_kwargs)
     geodesic_interpolate_flags = recursive_dict_merge(
         geodesic_defaults, geodesic_interpolate_kwargs
     )
-    neb_flags = recursive_dict_merge(neb_defaults, neb_kwargs)
-
-    # Debug prints to trace the values
+    run_neb_flags = recursive_dict_merge(run_neb_defaults, run_neb_kwargs)
 
     # Define calculator
     reactant_atoms.calc = NewtonNet(**calc_flags)
@@ -351,7 +349,7 @@ def neb_job(
     for image in images:
         image.calc = NewtonNet(**calc_flags)
 
-    dyn = run_neb(images, neb_kwargs=neb_flags)
+    dyn = run_neb(images, **run_neb_flags)
 
     return {
         "relax_reactant": relax_summary_r,
@@ -360,7 +358,7 @@ def neb_job(
         "neb_results": summarize_neb_run(
             dyn,
             additional_fields={
-                "neb_flags": neb_flags,
+                "run_neb_flags": run_neb_flags,
                 "calc_flags": calc_flags,
                 "geodesic_interpolate_flags": geodesic_interpolate_flags,
             },
