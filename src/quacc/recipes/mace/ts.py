@@ -282,9 +282,9 @@ def neb_job(
     reactant_atoms: Atoms,
     product_atoms: Atoms,
     relax_job_kwargs: dict[str, Any] | None = None,
-    calc_kwargs: dict[str, Any] | None = None,
     geodesic_interpolate_kwargs: dict[str, Any] | None = None,
-    neb_kwargs: dict[str, Any] | None = None,
+    run_neb_kwargs: dict[str, Any] | None = None,
+    **calc_kwargs,
 ) -> NebSchema:
     """
     Perform a nudged elastic band (NEB) calculation to find the minimum energy path (MEP) between the given reactant and product structures.
@@ -297,12 +297,12 @@ def neb_job(
         The Atoms object representing the product structure.
     relax_job_kwargs
         Keyword arguments to use relax_job.
-    calc_kwargs
-        Custom kwargs for the mace_off calculator.
     geodesic_interpolate_kwargs
         Keyword arguments for the geodesic function.
-    neb_kwargs
-        Keyword arguments for the NEB calculation.
+    run_neb_kwargs
+        Keyword arguments for quacc.runners.ase.run_neb function.
+    **calc_kwargs
+        Custom kwargs for the mace_off calculator.
 
     Returns
     -------
@@ -314,7 +314,7 @@ def neb_job(
             - 'neb_results': Summary of the NEB optimization.
     """
     relax_job_kwargs = relax_job_kwargs or {}
-    neb_kwargs = neb_kwargs or {}
+    run_neb_kwargs = run_neb_kwargs or {}
     geodesic_interpolate_kwargs = geodesic_interpolate_kwargs or {}
     settings = get_settings()
 
@@ -326,14 +326,13 @@ def neb_job(
 
     geodesic_defaults = {"n_images": 20}
 
-    neb_defaults = {"method": "aseneb", "precon": None}
+    run_neb_defaults = {'neb_kwargs': {"method": "aseneb", "precon": None}}
     calc_flags = recursive_dict_merge(calc_defaults, calc_kwargs)
     geodesic_interpolate_flags = recursive_dict_merge(
         geodesic_defaults, geodesic_interpolate_kwargs
     )
-    neb_flags = recursive_dict_merge(neb_defaults, neb_kwargs)
 
-    # Debug prints to trace the values
+    run_neb_flags = recursive_dict_merge(run_neb_defaults, run_neb_kwargs)
 
     # Define calculator
     reactant_atoms.calc = mace_off(default_dtypes='float32', **calc_flags)
@@ -350,7 +349,7 @@ def neb_job(
     for image in images:
         image.calc = mace_off(default_dtypes='float32', **calc_flags)
 
-    dyn = run_neb(images, neb_kwargs=neb_flags)
+    dyn = run_neb(images, **run_neb_flags)
 
     return {
         "relax_reactant": relax_summary_r,
@@ -359,7 +358,7 @@ def neb_job(
         "neb_results": summarize_neb_run(
             dyn,
             additional_fields={
-                "neb_flags": neb_flags,
+                "run_neb_flags": run_neb_flags,
                 "calc_flags": calc_flags,
                 "geodesic_interpolate_flags": geodesic_interpolate_flags,
             },
@@ -379,10 +378,10 @@ def neb_ts_job(
     reactant_atoms: Atoms,
     product_atoms: Atoms,
     relax_job_kwargs: dict[str, Any] | None = None,
-    calc_kwargs: dict[str, Any] | None = None,
     geodesic_interpolate_kwargs: dict[str, Any] | None = None,
     neb_kwargs: dict[str, Any] | None = None,
     ts_job_kwargs: dict[str, Any] | None = None,
+    **calc_kwargs,
 ) -> NebTsSchema:
     """
     Perform a quasi-IRC job using the given reactant and product atoms objects.
@@ -395,14 +394,14 @@ def neb_ts_job(
         The Atoms object representing the product structure.
     relax_job_kwargs
         Keyword arguments to use for the relax_job function, by default None.
-    calc_kwargs
-        Keyword arguments for the mace_off calculator, by default None.
     geodesic_interpolate_kwargs
         Keyword arguments for the geodesic_interpolate function, by default None.
     neb_kwargs
         Keyword arguments for the NEB calculation, by default None.
     ts_job_kwargs
         Keyword arguments for the TS optimizer, by default None.
+    **calc_kwargs
+        Keyword arguments for the mace_off calculator, by default None.
 
     Returns
     -------
@@ -473,8 +472,8 @@ def geodesic_job(
     reactant_atoms: Atoms,
     product_atoms: Atoms,
     relax_job_kwargs: dict[str, Any] | None = None,
-    calc_kwargs: dict[str, Any] | None = None,
     geodesic_interpolate_kwargs: dict[str, Any] | None = None,
+    **calc_kwargs,
 ) -> dict:
     """
     Perform a quasi-IRC job using the given reactant and product atoms objects.
@@ -487,10 +486,10 @@ def geodesic_job(
         The Atoms object representing the product structure.
     relax_job_kwargs
         Keyword arguments to use for the relax_job function, by default None.
-    calc_kwargs
-        Keyword arguments for the MACE calculator, by default None.
     geodesic_interpolate_kwargs
         Keyword arguments for the geodesic_interpolate function, by default None.
+    **calc_kwargs
+        Keyword arguments for the MACE calculator, by default None.
 
     Returns
     -------
@@ -561,9 +560,9 @@ def geodesic_ts_job(
     reactant_atoms: Atoms,
     product_atoms: Atoms,
     relax_job_kwargs: dict[str, Any] | None = None,
-    calc_kwargs: dict[str, Any] | None = None,
     geodesic_interpolate_kwargs: dict[str, Any] | None = None,
     ts_job_kwargs: dict[str, Any] | None = None,
+    **calc_kwargs,
 ) -> NebTsSchema:
     """
     Perform a quasi-IRC job using the given reactant and product atoms objects.
@@ -576,12 +575,12 @@ def geodesic_ts_job(
         The Atoms object representing the product structure.
     relax_job_kwargs
         Keyword arguments to use for the relax_job function, by default None.
-    calc_kwargs
-        Keyword arguments for the MACE calculator, by default None.
     geodesic_interpolate_kwargs
         Keyword arguments for the geodesic_interpolate function, by default None.
     ts_job_kwargs
         Keyword arguments for ts optimizer, by default None.
+    **calc_kwargs
+        Keyword arguments for the MACE calculator, by default None.
 
     Returns
     -------
